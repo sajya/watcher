@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sajya\Server;
 
 use Illuminate\Support\ServiceProvider;
+use Sajya\Server\Commands\CertificateGenerationCommand;
 use Sajya\Server\Commands\SecureServerCommand;
 
 class ServerServiceProvider extends ServiceProvider
@@ -15,6 +16,7 @@ class ServerServiceProvider extends ServiceProvider
      * @var array
      */
     protected $commands = [
+        CertificateGenerationCommand::class,
         SecureServerCommand::class,
     ];
 
@@ -23,7 +25,15 @@ class ServerServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->publishes([__DIR__.'../config/server.php' => config_path('server.php'),], 'config');
-        $this->mergeConfigFrom(__DIR__.'../config/server.php', 'server');
+        $this->publishes([__DIR__.'/../config/server.php' => config_path('server.php'),], 'config');
+        $this->mergeConfigFrom(__DIR__.'/../config/server.php', 'server');
+    }
+
+    /**
+     * Register bindings the service provider.
+     */
+    public function register(): void
+    {
+        $this->commands($this->commands);
     }
 }

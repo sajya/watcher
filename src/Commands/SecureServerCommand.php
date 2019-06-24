@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace Sajya\Server\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Contracts\Http\Kernel;
-use Illuminate\Http\Request;
-use Psr\Http\Message\ServerRequestInterface;
 use React\EventLoop\Factory;
-use React\Http\Response;
+use React\Http\Middleware\LimitConcurrentRequestsMiddleware;
+use React\Http\Middleware\RequestBodyBufferMiddleware;
+use React\Http\Middleware\RequestBodyParserMiddleware;
 use React\Http\Server as HttpServer;
+use React\Http\StreamingServer;
 use React\Socket\SecureServer;
 use React\Socket\Server as SocketServer;
-use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
+use Sajya\Server\FileHandle;
+use Sajya\Server\LaravelHandle;
 
 class SecureServerCommand extends Command
 {
@@ -37,16 +38,6 @@ class SecureServerCommand extends Command
     private $loop;
 
     /**
-     * @var Kernel
-     */
-    private $kernel;
-
-    /**
-     * @var HttpFoundationFactory
-     */
-    private $httpFoundation;
-
-    /**
      * SecureServerCommand constructor.
      */
     public function __construct()
@@ -54,8 +45,6 @@ class SecureServerCommand extends Command
         parent::__construct();
 
         $this->loop = Factory::create();
-        $this->kernel = app(Kernel::class);
-        $this->httpFoundation = new HttpFoundationFactory();
     }
 
     /**
@@ -65,13 +54,21 @@ class SecureServerCommand extends Command
      */
     public function handle()
     {
-        $server = new HttpServer([
-            $this->laravelHandle(),
+        $server = new StreamingServer([
+            new LimitConcurrentRequestsMiddleware(100), // 100 concurrent buffering handlers, queue otherwise
+            new RequestBodyBufferMiddleware(8 * 1024 * 1024), // 8 MiB max, ignore body otherwise
+            new RequestBodyParserMiddleware(100 * 1024, 1), // 1 file with 100 KiB max, reject upload otherwise
+            new FileHandle(),
+            new LaravelHandle(),
         ]);
 
         $secure = $this->buildSecureServer();
 
         $server->listen($secure);
+
+        $server->on('error', function (Throwable $e) {
+            echo 'Error: ' . $e->getMessage() . PHP_EOL;
+        });
 
         $this->info('Listening on ' . str_replace('tls:', 'https:', $secure->getAddress()));
 
@@ -83,29 +80,10 @@ class SecureServerCommand extends Command
      */
     protected function buildSecureServer(): SecureServer
     {
-        $socket = new SocketServer('0.0.0.0:0', $this->loop);
+        $socket = new SocketServer(config('server.uri'), $this->loop);
 
         return new SecureServer($socket, $this->loop, [
-            'local_cert' => __DIR__ . '/localhost.pem',
+            'local_cert' => storage_path('app/sajya.pem'),
         ]);
-    }
-
-    /**
-     * @return \Closure
-     */
-    protected function laravelHandle(): callable
-    {
-        return function (ServerRequestInterface $request) {
-
-            $symfonyRequest = $this->httpFoundation->createRequest($request);
-            $response = $this->kernel->handle(Request::createFromBase($symfonyRequest));
-
-            return new Response(
-                $response->getStatusCode(),
-                $response->headers->all(),
-                $response->getContent(),
-                $response->getProtocolVersion()
-            );
-        };
     }
 }
