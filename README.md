@@ -1,10 +1,11 @@
 # Local web server for the development of Laravel
 
-Feature:
+A must-have tool when developing Laravel apps locally. *(If you don't have docker, homestead, etc... :smile:)*
+
+What can?
 
 - Provides a local HTTP/1 web server.
 - Generates SSL certificates.
-- A must-have tool when developing Laravel apps locally. *(If you don't have docker, homestead, etc... :smile:)*
 
 ## Installation
 
