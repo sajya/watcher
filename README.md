@@ -4,7 +4,7 @@ Feature:
 
 - Provides a local HTTP/1 web server.
 - Generates SSL certificates.
-- A must-have tool when developing Laravel apps locally. (If you don't have docker, homestead, etc...)
+- A must-have tool when developing Laravel apps locally. *(If you don't have docker, homestead, etc... :smile:)*
 
 ## Installation
 
